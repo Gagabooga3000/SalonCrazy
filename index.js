@@ -68,25 +68,33 @@ bot.onText(/\/start/, async (msg) => {
         }
     };
     
-    bot.sendMessage(chatId, 
-        '👋 Добро пожаловать в салон красоты Crazy!\n\n' +
-        'Выберите действие:',
-        keyboard
-    );
+    try {
+        await bot.sendMessage(chatId, 
+            '👋 Добро пожаловать в салон красоты Crazy!\n\n' +
+            'Выберите действие:',
+            keyboard
+        );
+    } catch (error) {
+        console.error('Ошибка отправки приветствия:', error.message);
+    }
 });
 
 // Команда /help
-bot.onText(/\/help|\/помощь|❓ Помощь/, (msg) => {
+bot.onText(/\/help|\/помощь|❓ Помощь/, async (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId,
-        '📖 Доступные команды:\n\n' +
-        '/start - Главное меню\n' +
-        '📅 Записаться - Записаться на услугу\n' +
-        '📋 Мои записи - Посмотреть свои записи\n' +
-        '🛍️ Продукция - Каталог продукции\n' +
-        'ℹ️ Контакты - Контактная информация\n\n' +
-        'По вопросам обращайтесь к администратору.'
-    );
+    try {
+        await bot.sendMessage(chatId,
+            '📖 Доступные команды:\n\n' +
+            '/start - Главное меню\n' +
+            '📅 Записаться - Записаться на услугу\n' +
+            '📋 Мои записи - Посмотреть свои записи\n' +
+            '🛍️ Продукция - Каталог продукции\n' +
+            'ℹ️ Контакты - Контактная информация\n\n' +
+            'По вопросам обращайтесь к администратору.'
+        );
+    } catch (error) {
+        console.error('Ошибка отправки помощи:', error.message);
+    }
 });
 
 // Запись на услугу
@@ -99,7 +107,11 @@ bot.onText(/📅 Записаться|Записаться/, async (msg) => {
         const services = response.data;
         
         if (services.length === 0) {
-            bot.sendMessage(chatId, 'К сожалению, услуги временно недоступны.');
+            try {
+                await bot.sendMessage(chatId, 'К сожалению, услуги временно недоступны.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -113,7 +125,11 @@ bot.onText(/📅 Записаться|Записаться/, async (msg) => {
                     callback_data: `category_${cat}`
                 }])
             };
-            bot.sendMessage(chatId, 'Выберите категорию услуги:', { reply_markup: keyboard });
+            try {
+                await bot.sendMessage(chatId, 'Выберите категорию услуги:', { reply_markup: keyboard });
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
         } else {
             // Если нет категорий, показываем все услуги
             const keyboard = {
@@ -122,50 +138,77 @@ bot.onText(/📅 Записаться|Записаться/, async (msg) => {
                     callback_data: `service_${s.id}`
                 }])
             };
-            bot.sendMessage(chatId, 'Выберите услугу:', { reply_markup: keyboard });
+            try {
+                await bot.sendMessage(chatId, 'Выберите услугу:', { reply_markup: keyboard });
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             userStates[chatId].step = 'booking_service';
         }
     } catch (error) {
         console.error('Ошибка загрузки услуг:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки услуг. Попробуйте позже.');
+        try {
+            await bot.sendMessage(chatId, 'Ошибка загрузки услуг. Попробуйте позже.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 });
 
 // Обработка callback-запросов
 bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const data = query.data;
-    const state = userStates[chatId] || {};
-    
-    await bot.answerCallbackQuery(query.id);
-    
-    if (data.startsWith('category_')) {
-        const category = data.replace('category_', '');
-        await showServicesByCategory(chatId, category);
-    } else if (data.startsWith('service_')) {
-        const serviceId = parseInt(data.replace('service_', ''));
-        userStates[chatId] = { step: 'booking_master', serviceId };
-        await showMasters(chatId, serviceId);
-    } else if (data.startsWith('master_')) {
-        const masterId = parseInt(data.replace('master_', ''));
-        userStates[chatId].masterId = masterId;
-        bot.sendMessage(chatId, 'Введите желаемую дату и время в формате: ДД.ММ.ГГГГ ЧЧ:ММ\nНапример: 25.12.2024 14:00');
-        userStates[chatId].step = 'booking_datetime';
-    } else if (data === 'master_skip') {
-        userStates[chatId].masterId = null;
-        bot.sendMessage(chatId, 'Введите желаемую дату и время в формате: ДД.ММ.ГГГГ ЧЧ:ММ\nНапример: 25.12.2024 14:00');
-        userStates[chatId].step = 'booking_datetime';
-    } else if (data.startsWith('product_')) {
-        const productId = parseInt(data.replace('product_', ''));
-        await showProductDetails(chatId, productId);
-    } else if (data.startsWith('buy_product_')) {
-        const productId = parseInt(data.replace('buy_product_', ''));
-        await startProductOrder(chatId, productId);
-    } else if (data.startsWith('payment_')) {
-        const parts = data.replace('payment_', '').split('_');
-        const orderId = parseInt(parts[0]);
-        const method = parts[1];
-        await processPayment(chatId, orderId, method);
+    try {
+        const chatId = query.message.chat.id;
+        const userId = query.from.id; // ID пользователя Telegram
+        const data = query.data;
+        const state = userStates[chatId] || {};
+        
+        await bot.answerCallbackQuery(query.id);
+        
+        if (data.startsWith('category_')) {
+            const category = data.replace('category_', '');
+            await showServicesByCategory(chatId, category);
+        } else if (data.startsWith('service_')) {
+            const serviceId = parseInt(data.replace('service_', ''));
+            userStates[chatId] = { step: 'booking_master', serviceId };
+            await showMasters(chatId, serviceId);
+        } else if (data.startsWith('master_')) {
+            const masterId = parseInt(data.replace('master_', ''));
+            userStates[chatId].masterId = masterId;
+            try {
+                await bot.sendMessage(chatId, 'Введите желаемую дату и время в формате: ДД.ММ.ГГГГ ЧЧ:ММ\nНапример: 25.12.2024 14:00');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
+            userStates[chatId].step = 'booking_datetime';
+        } else if (data === 'master_skip') {
+            userStates[chatId].masterId = null;
+            try {
+                await bot.sendMessage(chatId, 'Введите желаемую дату и время в формате: ДД.ММ.ГГГГ ЧЧ:ММ\nНапример: 25.12.2024 14:00');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
+            userStates[chatId].step = 'booking_datetime';
+        } else if (data.startsWith('product_')) {
+            const productId = parseInt(data.replace('product_', ''));
+            await showProductDetails(chatId, productId);
+        } else if (data.startsWith('buy_product_')) {
+            const productId = parseInt(data.replace('buy_product_', ''));
+            await startProductOrder(chatId, productId, userId);
+        } else if (data.startsWith('payment_')) {
+            const parts = data.replace('payment_', '').split('_');
+            const productId = parseInt(parts[0]);
+            const method = parts[1];
+            await processPayment(chatId, productId, method, userId);
+        }
+    } catch (error) {
+        console.error('Ошибка в callback-обработчике:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.answerCallbackQuery(query.id, { text: 'Произошла ошибка. Попробуйте позже.', show_alert: false });
+        } catch (e) {
+            console.error('Не удалось ответить на callback:', e.message);
+        }
     }
 });
 
@@ -182,11 +225,20 @@ async function showServicesByCategory(chatId, category) {
             }])
         };
         
-        bot.sendMessage(chatId, `Услуги категории "${category}":`, { reply_markup: keyboard });
+        try {
+            await bot.sendMessage(chatId, `Услуги категории "${category}":`, { reply_markup: keyboard });
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         userStates[chatId].step = 'booking_service';
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки услуг.');
+        console.error('Ошибка загрузки услуг по категории:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка загрузки услуг.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 }
 
@@ -206,30 +258,44 @@ async function showMasters(chatId, serviceId) {
             ]
         };
         
-        bot.sendMessage(chatId, 'Выберите мастера (или любого):', { reply_markup: keyboard });
+        try {
+            await bot.sendMessage(chatId, 'Выберите мастера (или любого):', { reply_markup: keyboard });
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки мастеров.');
+        console.error('Ошибка загрузки мастеров:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка загрузки мастеров.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 }
 
 // Обработка текстовых сообщений (дата/время, комментарий, количество продукта)
 bot.on('message', async (msg) => {
-    // Пропускаем команды и callback
-    if (msg.text && msg.text.startsWith('/')) return;
-    if (msg.text && ['📅 Записаться', '📋 Мои записи', '🛍️ Продукция', 'ℹ️ Контакты', '❓ Помощь'].includes(msg.text)) return;
-    
-    const chatId = msg.chat.id;
-    const text = msg.text;
-    const state = userStates[chatId];
-    
-    if (!state || !state.step) return;
+    try {
+        // Пропускаем команды и callback
+        if (msg.text && msg.text.startsWith('/')) return;
+        if (msg.text && ['📅 Записаться', '📋 Мои записи', '🛍️ Продукция', 'ℹ️ Контакты', '❓ Помощь'].includes(msg.text)) return;
+        
+        const chatId = msg.chat.id;
+        const text = msg.text;
+        const state = userStates[chatId];
+        
+        if (!state || !state.step) return;
     
     if (state.step === 'booking_datetime') {
         // Парсим дату и время
         const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})/);
         if (!dateMatch) {
-            bot.sendMessage(chatId, 'Неверный формат. Используйте: ДД.ММ.ГГГГ ЧЧ:ММ');
+            try {
+                await bot.sendMessage(chatId, 'Неверный формат. Используйте: ДД.ММ.ГГГГ ЧЧ:ММ');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -237,13 +303,21 @@ bot.on('message', async (msg) => {
         const dateTime = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
         
         if (isNaN(dateTime.getTime()) || dateTime < new Date()) {
-            bot.sendMessage(chatId, 'Неверная дата или дата в прошлом.');
+            try {
+                await bot.sendMessage(chatId, 'Неверная дата или дата в прошлом.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
         state.dateTime = dateTime.toISOString().slice(0, 16);
         state.step = 'booking_note';
-        bot.sendMessage(chatId, 'Введите комментарий (или отправьте "-" чтобы пропустить):');
+        try {
+            await bot.sendMessage(chatId, 'Введите комментарий (или отправьте "-" чтобы пропустить):');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         
     } else if (state.step === 'booking_note') {
         state.note = text === '-' ? null : text;
@@ -252,7 +326,11 @@ bot.on('message', async (msg) => {
         try {
             const user = await getUserByTgId(msg.from.id);
             if (!user) {
-                bot.sendMessage(chatId, 'Ошибка: пользователь не найден. Используйте /start');
+                try {
+                    await bot.sendMessage(chatId, 'Ошибка: пользователь не найден. Используйте /start');
+                } catch (e) {
+                    console.error('Не удалось отправить сообщение:', e.message);
+                }
                 delete userStates[chatId];
                 return;
             }
@@ -271,10 +349,14 @@ bot.on('message', async (msg) => {
             const response = await axios.post(`${API_BASE}/bookings`, bookingData);
             
             if (response.data.success) {
-                bot.sendMessage(chatId,
-                    '✅ Запись успешно создана!\n\n' +
-                    'Мы свяжемся с вами для подтверждения.'
-                );
+                try {
+                    await bot.sendMessage(chatId,
+                        '✅ Запись успешно создана!\n\n' +
+                        'Мы свяжемся с вами для подтверждения.'
+                    );
+                } catch (e) {
+                    console.error('Не удалось отправить сообщение:', e.message);
+                }
                 
                 // Уведомление всем администраторам
                 const serviceResponse = await axios.get(`${API_BASE}/services/${state.serviceId}`);
@@ -297,9 +379,80 @@ bot.on('message', async (msg) => {
             delete userStates[chatId];
             
         } catch (error) {
-            console.error('Ошибка создания записи:', error);
-            bot.sendMessage(chatId, 'Ошибка создания записи. Попробуйте позже.');
+            console.error('Ошибка создания записи:', error.message);
+            console.error('Stack:', error.stack);
+            try {
+                await bot.sendMessage(chatId, 'Ошибка создания записи. Попробуйте позже.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
         }
+        
+    } else if (state.step === 'product_quantity') {
+        // Обработка количества для заказа продукта
+        const quantity = parseInt(text);
+        
+        if (isNaN(quantity) || quantity <= 0) {
+            try {
+                await bot.sendMessage(chatId, 'Введите корректное количество.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
+            return;
+        }
+        
+        try {
+            const productResponse = await axios.get(`${API_BASE}/products/${state.productId}`);
+            const product = productResponse.data;
+            
+            if (quantity > product.stock) {
+                try {
+                    await bot.sendMessage(chatId, `Максимальное количество: ${product.stock}`);
+                } catch (e) {
+                    console.error('Не удалось отправить сообщение:', e.message);
+                }
+                return;
+            }
+            
+            const total = product.price * quantity;
+            state.quantity = quantity;
+            state.total = total;
+            
+            const keyboard = {
+                inline_keyboard: [[
+                    { text: '💳 Оплатить онлайн', callback_data: `payment_${state.productId}_online` },
+                    { text: '💵 Оплата при получении', callback_data: `payment_${state.productId}_cash` }
+                ]]
+            };
+            
+            try {
+                await bot.sendMessage(chatId,
+                    `Заказ:\n` +
+                    `Товар: ${product.title}\n` +
+                    `Количество: ${quantity}\n` +
+                    `Сумма: ${total} руб.\n\n` +
+                    `Выберите способ оплаты:`,
+                    { reply_markup: keyboard }
+                );
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
+            
+            delete userStates[chatId];
+            
+        } catch (error) {
+            console.error('Ошибка обработки количества продукта:', error.message);
+            console.error('Stack:', error.stack);
+            try {
+                await bot.sendMessage(chatId, 'Ошибка. Попробуйте позже.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
+        }
+    }
+    } catch (error) {
+        console.error('Ошибка в обработке сообщения:', error.message);
+        console.error('Stack:', error.stack);
     }
 });
 
@@ -310,7 +463,11 @@ bot.onText(/📋 Мои записи|Мои записи/, async (msg) => {
     try {
         const user = await getUserByTgId(msg.from.id);
         if (!user) {
-            bot.sendMessage(chatId, 'Пользователь не найден. Используйте /start');
+            try {
+                await bot.sendMessage(chatId, 'Пользователь не найден. Используйте /start');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -318,7 +475,11 @@ bot.onText(/📋 Мои записи|Мои записи/, async (msg) => {
         const bookings = response.data;
         
         if (bookings.length === 0) {
-            bot.sendMessage(chatId, 'У вас пока нет записей.');
+            try {
+                await bot.sendMessage(chatId, 'У вас пока нет записей.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -341,24 +502,37 @@ bot.onText(/📋 Мои записи|Мои записи/, async (msg) => {
             message += '\n';
         });
         
-        bot.sendMessage(chatId, message);
+        try {
+            await bot.sendMessage(chatId, message);
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки записей.');
+        console.error('Ошибка загрузки записей:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка загрузки записей.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 });
 
 // Продукция
 bot.onText(/🛍️ Продукция|Продукция/, async (msg) => {
-    const chatId = msg.chat.id;
-    
     try {
+        const chatId = msg.chat.id;
+        
         const response = await axios.get(`${API_BASE}/products`);
         const products = response.data.filter(p => p.active && p.stock > 0);
         
         if (products.length === 0) {
-            bot.sendMessage(chatId, 'Продукция временно недоступна.');
+            try {
+                await bot.sendMessage(chatId, 'Продукция временно недоступна.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -369,11 +543,19 @@ bot.onText(/🛍️ Продукция|Продукция/, async (msg) => {
             }])
         };
         
-        bot.sendMessage(chatId, '🛍️ Каталог продукции:', { reply_markup: keyboard });
+        try {
+            await bot.sendMessage(chatId, '🛍️ Каталог продукции:', { reply_markup: keyboard });
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         
     } catch (error) {
         console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки продукции.');
+        try {
+            await bot.sendMessage(msg.chat.id, 'Ошибка загрузки продукции.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 });
 
@@ -396,27 +578,41 @@ async function showProductDetails(chatId, productId) {
             ]]
         };
         
-        if (product.photo) {
-            bot.sendPhoto(chatId, `${API_BASE.replace('/api', '')}/uploads/${product.photo}`, {
-                caption: message,
-                reply_markup: keyboard
-            });
-        } else {
-            bot.sendMessage(chatId, message, { reply_markup: keyboard });
+        try {
+            if (product.photo) {
+                await bot.sendPhoto(chatId, `${API_BASE.replace('/api', '')}/uploads/${product.photo}`, {
+                    caption: message,
+                    reply_markup: keyboard
+                });
+            } else {
+                await bot.sendMessage(chatId, message, { reply_markup: keyboard });
+            }
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
         }
         
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки продукта.');
+        console.error('Ошибка загрузки деталей продукта:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка загрузки продукта.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 }
 
 // Начало заказа продукта
-async function startProductOrder(chatId, productId) {
+async function startProductOrder(chatId, productId, userId) {
     try {
-        const user = await getUserByTgId(chatId);
+        // Используем userId (tg_id) вместо chatId для получения пользователя
+        const user = await getUserByTgId(userId || chatId);
         if (!user) {
-            bot.sendMessage(chatId, 'Пользователь не найден. Используйте /start');
+            try {
+                await bot.sendMessage(chatId, 'Пользователь не найден. Используйте /start');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -424,78 +620,53 @@ async function startProductOrder(chatId, productId) {
         const product = response.data;
         
         if (product.stock <= 0) {
-            bot.sendMessage(chatId, 'Товар закончился.');
+            try {
+                await bot.sendMessage(chatId, 'Товар закончился.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
         userStates[chatId] = { step: 'product_quantity', productId, price: product.price };
-        bot.sendMessage(chatId, `Введите количество (максимум ${product.stock}):`);
+        try {
+            await bot.sendMessage(chatId, `Введите количество (максимум ${product.stock}):`);
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка.');
+        console.error('Ошибка начала заказа продукта:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка. Попробуйте позже.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 }
 
-    } else if (state.step === 'product_quantity') {
-        // Обработка количества для заказа продукта
-        const quantity = parseInt(text);
-        
-        if (isNaN(quantity) || quantity <= 0) {
-            bot.sendMessage(chatId, 'Введите корректное количество.');
-            return;
-        }
-        
-        try {
-            const productResponse = await axios.get(`${API_BASE}/products/${state.productId}`);
-            const product = productResponse.data;
-            
-            if (quantity > product.stock) {
-                bot.sendMessage(chatId, `Максимальное количество: ${product.stock}`);
-                return;
-            }
-            
-            const total = product.price * quantity;
-            state.quantity = quantity;
-            state.total = total;
-            
-            const keyboard = {
-                inline_keyboard: [[
-                    { text: '💳 Оплатить онлайн', callback_data: `payment_${state.productId}_online` },
-                    { text: '💵 Оплата при получении', callback_data: `payment_${state.productId}_cash` }
-                ]]
-            };
-            
-            bot.sendMessage(chatId,
-                `Заказ:\n` +
-                `Товар: ${product.title}\n` +
-                `Количество: ${quantity}\n` +
-                `Сумма: ${total} руб.\n\n` +
-                `Выберите способ оплаты:`,
-                { reply_markup: keyboard }
-            );
-            
-            delete userStates[chatId];
-            
-        } catch (error) {
-            console.error('Ошибка:', error);
-            bot.sendMessage(chatId, 'Ошибка.');
-        }
-    }
-});
-
 // Обработка оплаты
-async function processPayment(chatId, productId, method) {
+async function processPayment(chatId, productId, method, userId) {
     try {
-        const user = await getUserByTgId(chatId);
+        // Используем userId (tg_id) вместо chatId для получения пользователя
+        const user = await getUserByTgId(userId || chatId);
         if (!user) {
-            bot.sendMessage(chatId, 'Пользователь не найден.');
+            try {
+                await bot.sendMessage(chatId, 'Пользователь не найден.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
         const state = userStates[chatId];
         if (!state || !state.quantity) {
-            bot.sendMessage(chatId, 'Ошибка. Начните заказ заново.');
+            try {
+                await bot.sendMessage(chatId, 'Ошибка. Начните заказ заново.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -510,54 +681,71 @@ async function processPayment(chatId, productId, method) {
         const response = await axios.post(`${API_BASE}/products`, orderData);
         
         if (response.data.success) {
-            if (method === 'online') {
-                bot.sendMessage(chatId,
-                    '✅ Заказ создан!\n\n' +
-                    'Для оплаты перейдите по ссылке:\n' +
-                    '(Здесь должна быть ссылка на платежную систему)\n\n' +
-                    'После оплаты заказ будет обработан.'
-                );
-            } else {
-                bot.sendMessage(chatId,
-                    '✅ Заказ создан!\n\n' +
-                    'Оплата при получении (самовывоз из салона).\n' +
-                    'Мы свяжемся с вами, когда заказ будет готов.'
-                );
+            try {
+                if (method === 'online') {
+                    await bot.sendMessage(chatId,
+                        '✅ Заказ создан!\n\n' +
+                        'Для оплаты перейдите по ссылке:\n' +
+                        '(Здесь должна быть ссылка на платежную систему)\n\n' +
+                        'После оплаты заказ будет обработан.'
+                    );
+                } else {
+                    await bot.sendMessage(chatId,
+                        '✅ Заказ создан!\n\n' +
+                        'Оплата при получении (самовывоз из салона).\n' +
+                        'Мы свяжемся с вами, когда заказ будет готов.'
+                    );
+                }
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
             }
             
             // Уведомление всем администраторам
-            const productResponse = await axios.get(`${API_BASE}/products/${productId}`);
-            const product = productResponse.data;
-            
-            const adminMessage = `🛍️ Новый заказ продукции:\n\n` +
-                `Клиент: ${user.name}\n` +
-                `Телефон: ${user.phone}\n` +
-                `Товар: ${product.title}\n` +
-                `Количество: ${state.quantity}\n` +
-                `Сумма: ${state.total} руб.\n` +
-                `Оплата: ${method === 'online' ? 'Онлайн' : 'Наличные'}`;
-            
-            await notifyAllAdmins(adminMessage);
+            try {
+                const productResponse = await axios.get(`${API_BASE}/products/${productId}`);
+                const product = productResponse.data;
+                
+                const adminMessage = `🛍️ Новый заказ продукции:\n\n` +
+                    `Клиент: ${user.name}\n` +
+                    `Телефон: ${user.phone}\n` +
+                    `Товар: ${product.title}\n` +
+                    `Количество: ${state.quantity}\n` +
+                    `Сумма: ${state.total} руб.\n` +
+                    `Оплата: ${method === 'online' ? 'Онлайн' : 'Наличные'}`;
+                
+                await notifyAllAdmins(adminMessage);
+            } catch (e) {
+                console.error('Ошибка отправки уведомления админам:', e.message);
+            }
         }
         
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка создания заказа.');
+        console.error('Ошибка обработки оплаты:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка создания заказа.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 }
 
 // Контакты
-bot.onText(/ℹ️ Контакты|Контакты/, (msg) => {
+bot.onText(/ℹ️ Контакты|Контакты/, async (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId,
-        'ℹ️ Контакты салона красоты Crazy:\n\n' +
-        '📍 Адрес: г. Москва, ул. Примерная, д. 1\n' +
-        '📞 Телефон: +7 (999) 123-45-67\n' +
-        '🕐 Режим работы:\n' +
-        'Пн-Пт: 9:00 - 20:00\n' +
-        'Сб-Вс: 10:00 - 18:00\n\n' +
-        '💬 Telegram: @crazy_salon_bot'
-    );
+    try {
+        await bot.sendMessage(chatId,
+            'ℹ️ Контакты салона красоты Crazy:\n\n' +
+            '📍 Адрес: г. Москва, ул. Примерная, д. 1\n' +
+            '📞 Телефон: +7 (999) 123-45-67\n' +
+            '🕐 Режим работы:\n' +
+            'Пн-Пт: 9:00 - 20:00\n' +
+            'Сб-Вс: 10:00 - 18:00\n\n' +
+            '💬 Telegram: @crazy_salon_bot'
+        );
+    } catch (error) {
+        console.error('Ошибка отправки контактов:', error.message);
+    }
 });
 
 // Регистрация пользователя
@@ -586,7 +774,8 @@ async function registerUser(from, chatId) {
             );
         }
     } catch (error) {
-        console.error('Ошибка регистрации пользователя:', error);
+        console.error('Ошибка регистрации пользователя:', error.message);
+        // Не бросаем ошибку, чтобы бот продолжал работать
     }
 }
 
@@ -649,11 +838,24 @@ bot.onText(/\/register_admin/, async (msg) => {
     
     // Проверяем, является ли пользователь администратором по ADMIN_IDS
     if (!ADMIN_IDS.includes(userId)) {
-        bot.sendMessage(chatId, '❌ У вас нет прав для регистрации администратора.');
+        try {
+            await bot.sendMessage(chatId, '❌ У вас нет прав для регистрации администратора.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         return;
     }
     
     try {
+        if (!db) {
+            try {
+                await bot.sendMessage(chatId, '❌ Ошибка: база данных не подключена.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
+            return;
+        }
+        
         // Сохраняем chat_id администратора в БД
         const [rows] = await db.execute(
             'SELECT id FROM admins WHERE chat_id = ?',
@@ -661,7 +863,11 @@ bot.onText(/\/register_admin/, async (msg) => {
         );
         
         if (rows.length > 0) {
-            bot.sendMessage(chatId, '✅ Вы уже зарегистрированы как администратор.');
+            try {
+                await bot.sendMessage(chatId, '✅ Вы уже зарегистрированы как администратор.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
         } else {
             // Ищем админа по tg_id или обновляем первый доступный
             const [adminRows] = await db.execute(
@@ -682,38 +888,54 @@ bot.onText(/\/register_admin/, async (msg) => {
                 );
             }
             
-            bot.sendMessage(chatId, 
-                '✅ Вы успешно зарегистрированы как администратор!\n\n' +
-                'Теперь вы будете получать уведомления о новых записях и заказах.'
-            );
+            try {
+                await bot.sendMessage(chatId, 
+                    '✅ Вы успешно зарегистрированы как администратор!\n\n' +
+                    'Теперь вы будете получать уведомления о новых записях и заказах.'
+                );
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
         }
     } catch (error) {
         console.error('Ошибка регистрации админа:', error);
-        bot.sendMessage(chatId, '❌ Ошибка регистрации. Обратитесь к разработчику.');
+        try {
+            await bot.sendMessage(msg.chat.id, '❌ Ошибка регистрации. Обратитесь к разработчику.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
 });
 
 // Админские команды
 bot.onText(/\/list_bookings/, async (msg) => {
-    const chatId = msg.chat.id;
-    
-    // Проверяем, является ли пользователь администратором
-    const [adminRows] = await db.execute(
-        'SELECT id FROM admins WHERE chat_id = ?',
-        [chatId]
-    );
-    
-    if (adminRows.length === 0 && !ADMIN_IDS.includes(msg.from.id)) {
-        bot.sendMessage(chatId, 'Доступ запрещен.');
-        return;
-    }
-    
     try {
+        const chatId = msg.chat.id;
+        
+        // Проверяем, является ли пользователь администратором
+        if (db) {
+            const [adminRows] = await db.execute(
+                'SELECT id FROM admins WHERE chat_id = ?',
+                [chatId]
+            );
+            
+            if (adminRows.length === 0 && !ADMIN_IDS.includes(msg.from.id)) {
+                await bot.sendMessage(chatId, 'Доступ запрещен.');
+                return;
+            }
+        } else if (!ADMIN_IDS.includes(msg.from.id)) {
+            await bot.sendMessage(chatId, 'Доступ запрещен.');
+            return;
+        }
         const response = await axios.get(`${API_BASE}/bookings?status=pending`);
         const bookings = response.data;
         
         if (bookings.length === 0) {
-            bot.sendMessage(chatId, 'Нет записей, ожидающих подтверждения.');
+            try {
+                await bot.sendMessage(chatId, 'Нет записей, ожидающих подтверждения.');
+            } catch (e) {
+                console.error('Не удалось отправить сообщение:', e.message);
+            }
             return;
         }
         
@@ -725,12 +947,45 @@ bot.onText(/\/list_bookings/, async (msg) => {
             message += `Дата: ${new Date(booking.date_time).toLocaleString('ru-RU')}\n\n`;
         });
         
-        bot.sendMessage(chatId, message);
+        try {
+            await bot.sendMessage(chatId, message);
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
         
     } catch (error) {
-        console.error('Ошибка:', error);
-        bot.sendMessage(chatId, 'Ошибка загрузки записей.');
+        console.error('Ошибка загрузки записей админом:', error.message);
+        console.error('Stack:', error.stack);
+        try {
+            await bot.sendMessage(chatId, 'Ошибка загрузки записей.');
+        } catch (e) {
+            console.error('Не удалось отправить сообщение:', e.message);
+        }
     }
+});
+
+// Глобальная обработка необработанных ошибок
+process.on('unhandledRejection', (error) => {
+    console.error('❌ Необработанная ошибка (unhandledRejection):', error);
+    console.error('Stack:', error.stack);
+    // Не завершаем процесс, чтобы бот продолжал работать
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('❌ Критическая ошибка (uncaughtException):', error);
+    console.error('Stack:', error.stack);
+    // Для критических ошибок можно перезапустить
+    // process.exit(1);
+});
+
+// Обработка ошибок Telegram API
+bot.on('error', (error) => {
+    console.error('❌ Ошибка Telegram API:', error.message);
+});
+
+bot.on('polling_error', (error) => {
+    console.error('❌ Ошибка polling:', error.message);
+    // Не завершаем процесс при ошибках polling
 });
 
 console.log('🤖 Бот запущен и готов к работе!');
