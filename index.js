@@ -11,10 +11,10 @@ const axios = require('axios');
 // Конфигурация
 const BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const DB_HOST = process.env.DB_HOST || 'localhost';
-const DB_NAME = process.env.DB_NAME || 'u3085178_default';
-const DB_USER = process.env.DB_USER || 'u3085178_default';
-const DB_PASS = process.env.DB_PASS || '0Q8e9sD8lWYFrwg6';
-const API_BASE = process.env.API_BASE || 'https://elektrika.site/api';
+const DB_NAME = process.env.DB_NAME || 'crazy_salon';
+const DB_USER = process.env.DB_USER || 'root';
+const DB_PASS = process.env.DB_PASS || '';
+const API_BASE = process.env.API_BASE || 'https://your-site.com/api';
 const ADMIN_IDS = (process.env.TG_ADMIN_IDS || '').split(',').map(id => parseInt(id)).filter(Boolean);
 
 if (!BOT_TOKEN) {
@@ -33,12 +33,16 @@ let db;
             host: DB_HOST,
             user: DB_USER,
             password: DB_PASS,
-            database: DB_NAME
+            database: DB_NAME,
+            connectTimeout: 10000 // 10 секунд таймаут
         });
-        console.log('Подключено к БД');
+        console.log('✅ Подключено к БД:', DB_NAME);
     } catch (error) {
-        console.error('Ошибка подключения к БД:', error);
-        process.exit(1);
+        console.error('❌ Ошибка подключения к БД:', error.message);
+        console.error('Проверьте переменные: DB_HOST, DB_NAME, DB_USER, DB_PASS');
+        console.error('Текущий DB_HOST:', DB_HOST);
+        // Не завершаем процесс, чтобы видеть ошибки в логах
+        // process.exit(1);
     }
 })();
 
@@ -588,6 +592,10 @@ async function registerUser(from, chatId) {
 
 // Получение пользователя по tg_id
 async function getUserByTgId(tgId) {
+    if (!db) {
+        console.error('БД не подключена!');
+        return null;
+    }
     try {
         const [rows] = await db.execute(
             'SELECT * FROM users WHERE tg_id = ?',
@@ -595,20 +603,24 @@ async function getUserByTgId(tgId) {
         );
         return rows[0] || null;
     } catch (error) {
-        console.error('Ошибка получения пользователя:', error);
+        console.error('Ошибка получения пользователя:', error.message);
         return null;
     }
 }
 
 // Получение всех администраторов с chat_id
 async function getAllAdmins() {
+    if (!db) {
+        console.error('БД не подключена!');
+        return [];
+    }
     try {
         const [rows] = await db.execute(
             'SELECT chat_id FROM admins WHERE chat_id IS NOT NULL AND chat_id != ""'
         );
         return rows.map(row => row.chat_id);
     } catch (error) {
-        console.error('Ошибка получения администраторов:', error);
+        console.error('Ошибка получения администраторов:', error.message);
         return [];
     }
 }
@@ -721,6 +733,12 @@ bot.onText(/\/list_bookings/, async (msg) => {
     }
 });
 
-console.log('Бот запущен и готов к работе!');
-
+console.log('🤖 Бот запущен и готов к работе!');
+console.log('📊 Проверка переменных окружения:');
+console.log('  - TG_BOT_TOKEN:', BOT_TOKEN ? '✅ Установлен' : '❌ НЕ УСТАНОВЛЕН');
+console.log('  - DB_HOST:', DB_HOST);
+console.log('  - DB_NAME:', DB_NAME);
+console.log('  - API_BASE:', API_BASE);
+console.log('  - TG_ADMIN_IDS:', ADMIN_IDS.length > 0 ? ADMIN_IDS : '❌ НЕ УСТАНОВЛЕН');
+console.log('  - БД подключена:', db ? '✅ Да' : '❌ Нет');
 
