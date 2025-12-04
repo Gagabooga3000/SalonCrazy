@@ -1,0 +1,36 @@
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules/
+vendor/
+
+# Uploads (опционально, можно закомментировать если нужны тестовые файлы)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup
+*.sql
+*.tar.gz
+*.zip
+backup/
+
+# Bitrix (если остались файлы)
+bitrix/
+bitrix_old/
+
