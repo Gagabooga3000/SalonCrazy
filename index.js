@@ -11,10 +11,10 @@ const axios = require('axios');
 // Конфигурация
 const BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const DB_HOST = process.env.DB_HOST || 'localhost';
-const DB_NAME = process.env.DB_NAME || 'crazy_salon';
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASS = process.env.DB_PASS || '';
-const API_BASE = process.env.API_BASE || 'https://your-site.com/api';
+const DB_NAME = process.env.DB_NAME || 'u3085178_default';
+const DB_USER = process.env.DB_USER || 'u3085178_default';
+const DB_PASS = process.env.DB_PASS || '0Q8e9sD8lWYFrwg6';
+const API_BASE = process.env.API_BASE || 'https://elektrika.site/api';
 const ADMIN_IDS = (process.env.TG_ADMIN_IDS || '').split(',').map(id => parseInt(id)).filter(Boolean);
 
 if (!BOT_TOKEN) {
@@ -722,4 +722,5 @@ bot.onText(/\/list_bookings/, async (msg) => {
 });
 
 console.log('Бот запущен и готов к работе!');
+
 
